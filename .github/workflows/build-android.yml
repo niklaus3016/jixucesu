@@ -34,24 +34,11 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Fix gradle wrapper
-        run: |
-          cd android
-          # 重新初始化gradle wrapper
-          curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradlew
-          chmod +x gradlew
-          # 生成正确的gradle-wrapper.properties
-          echo "distributionBase=GRADLE_USER_HOME" > gradle/wrapper/gradle-wrapper.properties
-          echo "distributionPath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
-          echo "zipStoreBase=GRADLE_USER_HOME" >> gradle/wrapper/gradle-wrapper.properties
-          echo "zipStorePath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
-          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip" >> gradle/wrapper/gradle-wrapper.properties
-
-      - name: Build APK
-        run: |
-          cd android
-          chmod +x ./gradlew
-          ./gradlew assembleDebug
+      - name: Build APK with Gradle
+        uses: gradle/gradle-build-action@v3
+        with:
+          arguments: assembleDebug
+          build-root-directory: android
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
