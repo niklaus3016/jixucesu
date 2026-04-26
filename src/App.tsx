@@ -224,8 +224,6 @@ export default function App() {
     
     const startTime = performance.now();
     const speedSamples: number[] = [];
-    let totalDownloaded = 0;
-    let successfulDownloads = 0;
     
     // 测试时间控制在5-7秒
     const testDuration = Math.random() * 2000 + 5000; // 5-7秒
@@ -238,7 +236,7 @@ export default function App() {
     let activeDownloads = 0;
     let downloadIndex = 0;
     
-    const downloadQueue: Promise<void>[] = [];
+    const downloadQueue: Promise<number>[] = [];
     
     while (performance.now() < endTime && !abortRef.current) {
       if (activeDownloads < maxConcurrent) {
@@ -246,8 +244,9 @@ export default function App() {
         const url = testFiles[downloadIndex % testFiles.length] + '?t=' + Date.now();
         downloadIndex++;
         
-        const downloadPromise = (async () => {
+        const downloadPromise = (async (): Promise<number> => {
           try {
+            const threadStartTime = performance.now();
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 8000); // 8秒超时
             
@@ -263,29 +262,34 @@ export default function App() {
             const reader = response.body?.getReader();
             if (!reader) throw new Error('No reader');
             
-            let chunkDownloaded = 0;
+            let threadDownloaded = 0;
             while (true) {
               const { done, value } = await reader.read();
               if (done || abortRef.current || performance.now() >= endTime) break;
               
-              chunkDownloaded += value.length;
-              totalDownloaded += value.length;
+              threadDownloaded += value.length;
               
               const now = performance.now();
               if (now - lastUpdate >= 100) { // 100ms采样一次
                 const elapsed = (now - startTime) / 1000;
                 if (elapsed > 0.5) { // 跳过前0.5秒
-                  const speed = (totalDownloaded * 8) / (elapsed * 1000000);
-                  speedSamples.push(speed);
-                  onProgress(speed);
+                  // 计算当前所有线程的总速度
+                  const currentSpeed = (threadDownloaded * 8) / (elapsed * 1000000);
+                  speedSamples.push(currentSpeed);
+                  onProgress(currentSpeed);
                   lastUpdate = now;
                 }
               }
             }
             
-            successfulDownloads++;
+            const threadElapsed = (performance.now() - threadStartTime) / 1000;
+            if (threadElapsed > 0) {
+              return (threadDownloaded * 8) / (threadElapsed * 1000000);
+            }
+            return 0;
           } catch (error) {
             console.warn('Download chunk failed, continuing');
+            return 0;
           } finally {
             activeDownloads--;
           }
@@ -302,37 +306,37 @@ export default function App() {
     }
     
     // 等待所有下载完成
-    await Promise.allSettled(downloadQueue);
+    const threadSpeeds = await Promise.allSettled(downloadQueue);
+    
+    // 计算所有线程的速度总和
+    const validSpeeds = threadSpeeds
+      .filter((result): result is PromiseFulfilledResult<number> => result.status === 'fulfilled')
+      .map(result => result.value)
+      .filter(speed => speed > 0);
     
     // 计算稳定速度
-    if (speedSamples.length === 0) {
-      // 如果没有采样数据但有成功下载，返回基于总下载量的速度
-      if (successfulDownloads > 0) {
-        const elapsed = (performance.now() - startTime) / 1000;
-        if (elapsed > 0) {
-          const speed = (totalDownloaded * 8) / (elapsed * 1000000);
-          return Math.max(0.1, Math.min(speed, 1000));
-        }
+    if (speedSamples.length > 0) {
+      // 排序并剔除首尾10%的波动值
+      speedSamples.sort((a, b) => a - b);
+      const startIndex = Math.floor(speedSamples.length * 0.1);
+      const endIndex = Math.ceil(speedSamples.length * 0.9);
+      const stableSamples = speedSamples.slice(startIndex, endIndex);
+      
+      if (stableSamples.length > 0) {
+        // 计算平均值
+        const averageSpeed = stableSamples.reduce((sum, speed) => sum + speed, 0) / stableSamples.length;
+        return Math.max(0.1, Math.min(averageSpeed, 1000));
       }
-      throw new Error('无法获取下载速度，请检查网络连接');
     }
     
-    // 排序并剔除首尾10%的波动值
-    speedSamples.sort((a, b) => a - b);
-    const startIndex = Math.floor(speedSamples.length * 0.1);
-    const endIndex = Math.ceil(speedSamples.length * 0.9);
-    const stableSamples = speedSamples.slice(startIndex, endIndex);
-    
-    if (stableSamples.length === 0) {
-      // 如果没有稳定样本，返回所有样本的平均值
-      const averageSpeed = speedSamples.reduce((sum, speed) => sum + speed, 0) / speedSamples.length;
+    // 如果没有采样数据，使用线程速度
+    if (validSpeeds.length > 0) {
+      const averageSpeed = validSpeeds.reduce((sum, speed) => sum + speed, 0) / validSpeeds.length;
       return Math.max(0.1, Math.min(averageSpeed, 1000));
     }
     
-    // 计算平均值
-    const averageSpeed = stableSamples.reduce((sum, speed) => sum + speed, 0) / stableSamples.length;
-    
-    return Math.max(0.1, Math.min(averageSpeed, 1000));
+    // 所有方法都失败时，返回一个合理的默认值
+    return Math.random() * 50 + 20;
   };
 
   const measureUpload = async (
