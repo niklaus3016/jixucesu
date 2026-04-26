@@ -295,7 +295,10 @@ export default function App() {
             const response = await fetch(url, {
               mode: 'cors',
               cache: 'no-store',
-              signal: controller.signal
+              signal: controller.signal,
+              headers: {
+                'Accept-Encoding': 'identity' // 禁用gzip压缩，确保读取真实字节数
+              }
             });
             
             clearTimeout(timeoutId);
