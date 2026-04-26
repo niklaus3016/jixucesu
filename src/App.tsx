@@ -74,9 +74,9 @@ export default function App() {
 
   // Smooth speed value for gauge
   const smoothSpeed = useSpring(0, {
-    damping: 30,
-    stiffness: 120,
-    mass: 1
+    damping: 15, // 减少阻尼，使动画更流畅
+    stiffness: 200, // 增加刚度，使动画反应更快
+    mass: 0.5 // 减少质量，使动画更灵敏
   });
 
   // --- Refs ---
