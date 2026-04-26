@@ -34,6 +34,26 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Fix gradle wrapper completely
+        run: |
+          cd android
+          # 删除现有的gradle wrapper目录
+          rm -rf gradle/wrapper
+          # 重新创建目录
+          mkdir -p gradle/wrapper
+          # 下载正确的gradle-wrapper.jar
+          curl -L -o gradle/wrapper/gradle-wrapper.jar https://services.gradle.org/distributions/gradle-8.7-wrapper.jar
+          # 下载正确的gradlew脚本
+          curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradlew
+          # 生成正确的gradle-wrapper.properties
+          echo "distributionBase=GRADLE_USER_HOME" > gradle/wrapper/gradle-wrapper.properties
+          echo "distributionPath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
+          echo "zipStoreBase=GRADLE_USER_HOME" >> gradle/wrapper/gradle-wrapper.properties
+          echo "zipStorePath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
+          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip" >> gradle/wrapper/gradle-wrapper.properties
+          # 赋予执行权限
+          chmod +x gradlew
+
       - name: Build APK with Gradle
         uses: gradle/gradle-build-action@v3
         with:
