@@ -632,6 +632,11 @@ export default function App() {
   const currentRating = getRating(downloadSpeed);
   const currentDisplaySpeed = stage === 'upload' ? uploadSpeed : downloadSpeed;
 
+  const gaugeBreaks = [0, 10, 50, 100, 250, 500, 1000];
+  const gaugeProgress = [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1];
+
+  const progressPath = useTransform(displaySpeed, gaugeBreaks, gaugeProgress);
+
   const getEstimatedBroadband = (speed: number) => {
     if (speed <= 0) return '--';
     
@@ -651,16 +656,6 @@ export default function App() {
     if (theoreticalBandwidth < 1000) return '500M宽带';
     return '1000M(千兆)宽带';
   };
-
-  // Update smooth speed whenever display speed changes
-  useEffect(() => {
-    smoothSpeed.set(currentDisplaySpeed);
-  }, [currentDisplaySpeed, smoothSpeed]);
-
-  const gaugeBreaks = [0, 10, 50, 100, 250, 500, 1000];
-  const gaugeProgress = [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1];
-
-  const progressPath = useTransform(displaySpeed, gaugeBreaks, gaugeProgress);
 
   const cx = 160;
   const cy = 145;
