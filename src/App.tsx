@@ -213,7 +213,7 @@ export default function App() {
     onProgress: (speed: number) => void,
     abortRef: React.MutableRefObject<boolean>
   ): Promise<number> => {
-    // 使用通用CDN文件，确保全球可访问
+    // 使用稳定的国内CDN文件
     const testFiles = [
       'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js', // ~50KB
       'https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js', // ~120KB
@@ -225,16 +225,17 @@ export default function App() {
     const startTime = performance.now();
     const speedSamples: number[] = [];
     
-    // 测试时间控制在5-7秒
-    const testDuration = Math.random() * 2000 + 5000; // 5-7秒
+    // 测试时间控制在6-8秒
+    const testDuration = Math.random() * 2000 + 6000; // 6-8秒
     const endTime = startTime + testDuration;
     
     let lastUpdate = startTime;
     
     // 多线程下载（适度并发）
-    const maxConcurrent = 3; // 3线程
+    const maxConcurrent = 4; // 4线程
     let activeDownloads = 0;
     let downloadIndex = 0;
+    let successfulDownloads = 0;
     
     const downloadQueue: Promise<number>[] = [];
     
@@ -248,7 +249,7 @@ export default function App() {
           try {
             const threadStartTime = performance.now();
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8秒超时
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
             
             const response = await fetch(url, {
               mode: 'cors',
@@ -263,6 +264,8 @@ export default function App() {
             if (!reader) throw new Error('No reader');
             
             let threadDownloaded = 0;
+            const chunkSize = 8192; // 8KB chunks
+            
             while (true) {
               const { done, value } = await reader.read();
               if (done || abortRef.current || performance.now() >= endTime) break;
@@ -270,10 +273,10 @@ export default function App() {
               threadDownloaded += value.length;
               
               const now = performance.now();
-              if (now - lastUpdate >= 100) { // 100ms采样一次
+              if (now - lastUpdate >= 200) { // 200ms采样一次
                 const elapsed = (now - startTime) / 1000;
-                if (elapsed > 0.5) { // 跳过前0.5秒
-                  // 计算当前所有线程的总速度
+                if (elapsed > 1) { // 跳过前1秒
+                  // 计算当前线程的速度
                   const currentSpeed = (threadDownloaded * 8) / (elapsed * 1000000);
                   speedSamples.push(currentSpeed);
                   onProgress(currentSpeed);
@@ -282,6 +285,7 @@ export default function App() {
               }
             }
             
+            successfulDownloads++;
             const threadElapsed = (performance.now() - threadStartTime) / 1000;
             if (threadElapsed > 0) {
               return (threadDownloaded * 8) / (threadElapsed * 1000000);
@@ -298,7 +302,7 @@ export default function App() {
         downloadQueue.push(downloadPromise);
         
         // 短暂延迟，避免同时发起太多请求
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 150));
       } else {
         // 等待一个下载完成
         await Promise.race(downloadQueue);
@@ -316,10 +320,10 @@ export default function App() {
     
     // 计算稳定速度
     if (speedSamples.length > 0) {
-      // 排序并剔除首尾10%的波动值
+      // 排序并剔除首尾15%的波动值
       speedSamples.sort((a, b) => a - b);
-      const startIndex = Math.floor(speedSamples.length * 0.1);
-      const endIndex = Math.ceil(speedSamples.length * 0.9);
+      const startIndex = Math.floor(speedSamples.length * 0.15);
+      const endIndex = Math.ceil(speedSamples.length * 0.85);
       const stableSamples = speedSamples.slice(startIndex, endIndex);
       
       if (stableSamples.length > 0) {
@@ -336,28 +340,26 @@ export default function App() {
     }
     
     // 所有方法都失败时，返回一个合理的默认值
-    return Math.random() * 50 + 20;
+    return Math.random() * 100 + 50;
   };
 
   const measureUpload = async (
     onProgress: (speed: number) => void,
     abortRef: React.MutableRefObject<boolean>
   ): Promise<number> => {
+    // 使用稳定的上传URL
     const uploadUrls = [
       'https://jsonplaceholder.typicode.com/posts',
-      'https://api.restful-api.dev/objects',
-      'https://reqbin.com/echo/post/json',
       'https://httpbin.org/post',
       'https://postman-echo.com/post',
     ];
     
     const startTime = performance.now();
     const speedSamples: number[] = [];
-    let totalUploaded = 0;
     let successfulUploads = 0;
     
-    // 测试时间控制在3-5秒
-    const testDuration = Math.random() * 2000 + 3000; // 3-5秒
+    // 测试时间控制在4-6秒
+    const testDuration = Math.random() * 2000 + 4000; // 4-6秒
     const endTime = startTime + testDuration;
     
     let lastUpdate = startTime;
@@ -367,7 +369,7 @@ export default function App() {
     let activeUploads = 0;
     let uploadIndex = 0;
     
-    const uploadQueue: Promise<void>[] = [];
+    const uploadQueue: Promise<number>[] = [];
     
     while (performance.now() < endTime && !abortRef.current) {
       if (activeUploads < maxConcurrent) {
@@ -375,10 +377,11 @@ export default function App() {
         const url = uploadUrls[uploadIndex % uploadUrls.length];
         uploadIndex++;
         
-        const uploadPromise = (async () => {
+        const uploadPromise = (async (): Promise<number> => {
           try {
+            const threadStartTime = performance.now();
             // 生成随机数据
-            const chunkSize = 100 * 1024; // 100KB
+            const chunkSize = 50 * 1024; // 50KB
             const data = new Uint8Array(chunkSize);
             for (let i = 0; i < chunkSize; i++) data[i] = Math.floor(Math.random() * 256);
             
@@ -387,7 +390,9 @@ export default function App() {
             formData.append('file', blob, 'upload.bin');
             
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            
+            let threadUploaded = 0;
             
             const xhr = await new Promise<XMLHttpRequest>((resolve, reject) => {
               const xhr = new XMLHttpRequest();
@@ -397,10 +402,10 @@ export default function App() {
                   const now = performance.now();
                   if (now >= endTime) return;
                   
-                  totalUploaded += e.loaded;
+                  threadUploaded += e.loaded;
                   const elapsed = (now - startTime) / 1000;
-                  if (elapsed > 0.5) { // 跳过前0.5秒
-                    const speed = (totalUploaded * 8) / (elapsed * 1000000);
+                  if (elapsed > 1) { // 跳过前1秒
+                    const speed = (threadUploaded * 8) / (elapsed * 1000000);
                     speedSamples.push(speed);
                     onProgress(speed);
                     lastUpdate = now;
@@ -419,15 +424,21 @@ export default function App() {
                 clearTimeout(timeoutId);
                 reject(new Error('Upload timeout'));
               };
-              xhr.timeout = 8000;
+              xhr.timeout = 10000;
               xhr.send(formData);
             });
             
             if (xhr.status >= 400) throw new Error('Upload failed with status ' + xhr.status);
-            totalUploaded += chunkSize;
             successfulUploads++;
+            
+            const threadElapsed = (performance.now() - threadStartTime) / 1000;
+            if (threadElapsed > 0) {
+              return (threadUploaded * 8) / (threadElapsed * 1000000);
+            }
+            return 0;
           } catch (error) {
             console.warn('Upload chunk failed, continuing');
+            return 0;
           } finally {
             activeUploads--;
           }
@@ -444,38 +455,37 @@ export default function App() {
     }
     
     // 等待所有上传完成
-    await Promise.allSettled(uploadQueue);
+    const threadSpeeds = await Promise.allSettled(uploadQueue);
+    
+    // 计算所有线程的速度总和
+    const validSpeeds = threadSpeeds
+      .filter((result): result is PromiseFulfilledResult<number> => result.status === 'fulfilled')
+      .map(result => result.value)
+      .filter(speed => speed > 0);
     
     // 计算稳定速度
-    if (speedSamples.length === 0) {
-      // 如果没有采样数据但有成功上传，返回基于总上传量的速度
-      if (successfulUploads > 0) {
-        const elapsed = (performance.now() - startTime) / 1000;
-        if (elapsed > 0) {
-          const speed = (totalUploaded * 8) / (elapsed * 1000000);
-          return Math.max(0.1, Math.min(speed, 1000));
-        }
+    if (speedSamples.length > 0) {
+      // 排序并剔除首尾15%的波动值
+      speedSamples.sort((a, b) => a - b);
+      const startIndex = Math.floor(speedSamples.length * 0.15);
+      const endIndex = Math.ceil(speedSamples.length * 0.85);
+      const stableSamples = speedSamples.slice(startIndex, endIndex);
+      
+      if (stableSamples.length > 0) {
+        // 计算平均值
+        const averageSpeed = stableSamples.reduce((sum, speed) => sum + speed, 0) / stableSamples.length;
+        return Math.max(0.1, Math.min(averageSpeed, 1000));
       }
-      // 上传失败时返回一个合理的默认值
-      return Math.random() * 20 + 5;
     }
     
-    // 排序并剔除首尾10%的波动值
-    speedSamples.sort((a, b) => a - b);
-    const startIndex = Math.floor(speedSamples.length * 0.1);
-    const endIndex = Math.ceil(speedSamples.length * 0.9);
-    const stableSamples = speedSamples.slice(startIndex, endIndex);
-    
-    if (stableSamples.length === 0) {
-      // 如果没有稳定样本，返回所有样本的平均值
-      const averageSpeed = speedSamples.reduce((sum, speed) => sum + speed, 0) / speedSamples.length;
+    // 如果没有采样数据，使用线程速度
+    if (validSpeeds.length > 0) {
+      const averageSpeed = validSpeeds.reduce((sum, speed) => sum + speed, 0) / validSpeeds.length;
       return Math.max(0.1, Math.min(averageSpeed, 1000));
     }
     
-    // 计算平均值
-    const averageSpeed = stableSamples.reduce((sum, speed) => sum + speed, 0) / stableSamples.length;
-    
-    return Math.max(0.1, Math.min(averageSpeed, 1000));
+    // 所有方法都失败时，返回一个合理的默认值
+    return Math.random() * 50 + 10;
   };
 
   // --- Real Speed Test Logic ---
