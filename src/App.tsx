@@ -213,27 +213,27 @@ export default function App() {
     onProgress: (speed: number) => void,
     abortRef: React.MutableRefObject<boolean>
   ): Promise<number> => {
-    // 使用更大的测试文件
+    // 使用高速CDN大文件
     const testFiles = [
+      'https://speed.cloudflare.com/__down?bytes=100000000', // 100MB
+      'https://edge.cloudflare.com/100MB.test', // 100MB
       'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js', // ~50KB
       'https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js', // ~120KB
-      'https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js', // ~70KB
-      'https://cdn.jsdelivr.net/npm/axios@1.6.2/dist/axios.min.js', // ~20KB
-      'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js', // ~87KB
     ];
     
     const startTime = performance.now();
     const speedSamples: number[] = [];
     let totalDownloaded = 0;
     
-    // 测试时间控制在8-10秒
-    const testDuration = Math.random() * 2000 + 8000; // 8-10秒
+    // 测试时间控制在8秒
+    const testDuration = 8000; // 8秒
     const endTime = startTime + testDuration;
+    const ignoreTime = 2000; // 忽略前2秒
     
     let lastUpdate = startTime;
     
     // 多线程下载
-    const maxConcurrent = 4; // 增加到4线程
+    const maxConcurrent = 8; // 增加到8线程
     let activeDownloads = 0;
     let downloadIndex = 0;
     
@@ -248,12 +248,16 @@ export default function App() {
         const downloadPromise = (async () => {
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 增加超时时间
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 增加超时时间
             
             const response = await fetch(url, {
               mode: 'cors',
               cache: 'no-store',
-              signal: controller.signal
+              signal: controller.signal,
+              headers: {
+                'Cache-Control': 'no-cache',
+                'Accept-Encoding': 'identity' // 禁用压缩
+              }
             });
             
             clearTimeout(timeoutId);
@@ -271,8 +275,8 @@ export default function App() {
               totalDownloaded += value.length;
               
               const now = performance.now();
-              if (now - lastUpdate >= 50) { // 增加采样频率
-                const elapsed = (now - startTime) / 1000;
+              if (now - lastUpdate >= 50 && now - startTime >= ignoreTime) { // 忽略前2秒
+                const elapsed = (now - startTime - ignoreTime) / 1000;
                 const speed = (totalDownloaded * 8) / (elapsed * 1000000);
                 speedSamples.push(speed);
                 onProgress(speed);
