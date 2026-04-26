@@ -106,8 +106,8 @@ export default function App() {
       }
     }
 
-    // Fallback: default to WiFi if we can't detect
-    setNetworkType('WiFi');
+    // Fallback: show — if we can't detect
+    setNetworkType('—');
   }, []);
 
   const fetchIspInfo = async () => {
