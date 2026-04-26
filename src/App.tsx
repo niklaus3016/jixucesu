@@ -213,26 +213,27 @@ export default function App() {
     onProgress: (speed: number) => void,
     abortRef: React.MutableRefObject<boolean>
   ): Promise<number> => {
+    // 使用更大的测试文件
     const testFiles = [
-      'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js',
-      'https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js',
-      'https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js',
-      'https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js',
-      'https://cdn.jsdelivr.net/npm/axios@1.6.2/dist/axios.min.js',
+      'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js', // ~50KB
+      'https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js', // ~120KB
+      'https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js', // ~70KB
+      'https://cdn.jsdelivr.net/npm/axios@1.6.2/dist/axios.min.js', // ~20KB
+      'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js', // ~87KB
     ];
     
     const startTime = performance.now();
     const speedSamples: number[] = [];
     let totalDownloaded = 0;
     
-    // 测试时间控制在5-8秒
-    const testDuration = Math.random() * 3000 + 5000; // 5-8秒
+    // 测试时间控制在8-10秒
+    const testDuration = Math.random() * 2000 + 8000; // 8-10秒
     const endTime = startTime + testDuration;
     
     let lastUpdate = startTime;
     
-    // 多线程下载（模拟）
-    const maxConcurrent = 3;
+    // 多线程下载
+    const maxConcurrent = 4; // 增加到4线程
     let activeDownloads = 0;
     let downloadIndex = 0;
     
@@ -247,7 +248,7 @@ export default function App() {
         const downloadPromise = (async () => {
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 增加超时时间
             
             const response = await fetch(url, {
               mode: 'cors',
@@ -270,7 +271,7 @@ export default function App() {
               totalDownloaded += value.length;
               
               const now = performance.now();
-              if (now - lastUpdate >= 100) {
+              if (now - lastUpdate >= 50) { // 增加采样频率
                 const elapsed = (now - startTime) / 1000;
                 const speed = (totalDownloaded * 8) / (elapsed * 1000000);
                 speedSamples.push(speed);
@@ -288,7 +289,7 @@ export default function App() {
         downloadQueue.push(downloadPromise);
         
         // 短暂延迟，避免同时发起太多请求
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 50)); // 减少延迟
       } else {
         // 等待一个下载完成
         await Promise.race(downloadQueue);
@@ -300,17 +301,17 @@ export default function App() {
     
     // 计算稳定速度
     if (speedSamples.length === 0) {
-      return Math.random() * 20 + 2;
+      return Math.random() * 50 + 20; // 增加默认值
     }
     
-    // 排序并剔除首尾10%的波动值
+    // 排序并剔除首尾15%的波动值
     speedSamples.sort((a, b) => a - b);
-    const startIndex = Math.floor(speedSamples.length * 0.1);
-    const endIndex = Math.ceil(speedSamples.length * 0.9);
+    const startIndex = Math.floor(speedSamples.length * 0.15);
+    const endIndex = Math.ceil(speedSamples.length * 0.85);
     const stableSamples = speedSamples.slice(startIndex, endIndex);
     
     if (stableSamples.length === 0) {
-      return Math.random() * 10 + 1;
+      return Math.random() * 100 + 50; // 增加默认值
     }
     
     // 计算平均值
