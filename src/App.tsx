@@ -106,13 +106,8 @@ export default function App() {
       }
     }
 
-    // Fallback: detect based on user agent
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (isMobile) {
-      setNetworkType('移动数据');
-    } else {
-      setNetworkType('WiFi');
-    }
+    // Fallback: default to WiFi if we can't detect
+    setNetworkType('WiFi');
   }, []);
 
   const fetchIspInfo = async () => {
