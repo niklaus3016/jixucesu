@@ -33,7 +33,13 @@ jobs:
       
       - name: Sync Capacitor
         run: npx cap sync android
-      
+
+      - name: Fix gradle wrapper
+        run: |
+          cd android
+          rm -f gradle/wrapper/gradle-wrapper.jar
+          curl -L -o gradle/wrapper/gradle-wrapper.jar https://github.com/gradle/gradle/raw/v8.7.0/gradle/wrapper/gradle-wrapper.jar
+
       - name: Build APK
         run: |
           cd android
