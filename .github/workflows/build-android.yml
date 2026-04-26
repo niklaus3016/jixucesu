@@ -54,11 +54,11 @@ jobs:
           # 赋予执行权限
           chmod +x gradlew
 
-      - name: Build APK with Gradle
-        uses: gradle/gradle-build-action@v3
-        with:
-          arguments: assembleDebug
-          build-root-directory: android
+      - name: Build APK with system Gradle
+        run: |
+          cd android
+          # 直接使用系统安装的gradle
+          gradle assembleDebug
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
