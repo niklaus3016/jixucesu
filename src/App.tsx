@@ -301,7 +301,7 @@ export default function App() {
     
     // 计算稳定速度
     if (speedSamples.length === 0) {
-      return Math.random() * 50 + 20; // 增加默认值
+      throw new Error('无法获取下载速度，请检查网络连接');
     }
     
     // 排序并剔除首尾15%的波动值
@@ -311,7 +311,7 @@ export default function App() {
     const stableSamples = speedSamples.slice(startIndex, endIndex);
     
     if (stableSamples.length === 0) {
-      return Math.random() * 100 + 50; // 增加默认值
+      throw new Error('下载速度不稳定，请重试');
     }
     
     // 计算平均值
@@ -404,49 +404,7 @@ export default function App() {
             if (xhr.status >= 400) throw new Error('Upload failed with status ' + xhr.status);
             totalUploaded += chunkSize;
           } catch (error) {
-            console.warn('Upload chunk failed, using fallback');
-            try {
-              // 尝试使用fetch API作为备用
-              const fallbackData = new Uint8Array(100 * 1024);
-              for (let j = 0; j < 100 * 1024; j++) fallbackData[j] = j % 256;
-              
-              const fallbackController = new AbortController();
-              const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), 3000);
-              
-              await fetch('https://jsonplaceholder.typicode.com/posts', {
-                method: 'POST',
-                body: JSON.stringify({ 
-                  title: 'Test upload',
-                  body: Array.from(fallbackData).slice(0, 5000).join(','),
-                  userId: 1 
-                }),
-                headers: { 'Content-Type': 'application/json' },
-                signal: fallbackController.signal
-              });
-              
-              clearTimeout(fallbackTimeoutId);
-              totalUploaded += 100 * 1024;
-              
-              // 模拟上传速度
-              const now = performance.now();
-              if (now < endTime) {
-                const elapsed = (now - startTime) / 1000;
-                const simulatedSpeed = Math.random() * 10 + 1;
-                speedSamples.push(simulatedSpeed);
-                onProgress(simulatedSpeed);
-              }
-            } catch (fallbackError) {
-              console.warn('Fallback upload also failed');
-              // 完全模拟上传进度
-              totalUploaded += 50 * 1024;
-              const now = performance.now();
-              if (now < endTime) {
-                const elapsed = (now - startTime) / 1000;
-                const simulatedSpeed = Math.random() * 5 + 0.5;
-                speedSamples.push(simulatedSpeed);
-                onProgress(simulatedSpeed);
-              }
-            }
+            console.warn('Upload chunk failed, continuing with next chunk');
           } finally {
             activeUploads--;
           }
@@ -467,7 +425,7 @@ export default function App() {
     
     // 计算稳定速度
     if (speedSamples.length === 0) {
-      return Math.random() * 5 + 0.5;
+      throw new Error('无法获取上传速度，请检查网络连接');
     }
     
     // 排序并剔除首尾10%的波动值
@@ -477,7 +435,7 @@ export default function App() {
     const stableSamples = speedSamples.slice(startIndex, endIndex);
     
     if (stableSamples.length === 0) {
-      return Math.random() * 3 + 0.3;
+      throw new Error('上传速度不稳定，请重试');
     }
     
     // 计算平均值
@@ -513,38 +471,43 @@ export default function App() {
     setUploadSpeed(0);
     setPing(0);
 
-    const { ping: finalPing, jitter: finalJitter } = await measurePing();
-    setPing(finalPing);
-    setJitterValue(finalJitter);
+    try {
+      const { ping: finalPing, jitter: finalJitter } = await measurePing();
+      setPing(finalPing);
+      setJitterValue(finalJitter);
 
-    setStage('download');
-    const finalDownload = await measureDownload((speed) => {
-      if (!abortRef.current) setDownloadSpeed(speed);
-    }, abortRef);
+      setStage('download');
+      const finalDownload = await measureDownload((speed) => {
+        if (!abortRef.current) setDownloadSpeed(speed);
+      }, abortRef);
 
-    setStage('upload');
-    const finalUpload = await measureUpload((speed) => {
-      if (!abortRef.current) setUploadSpeed(speed);
-    }, abortRef);
+      setStage('upload');
+      const finalUpload = await measureUpload((speed) => {
+        if (!abortRef.current) setUploadSpeed(speed);
+      }, abortRef);
 
-    const broadband = getEstimatedBroadband(finalDownload);
-    const result: TestResult = {
-      download: finalDownload,
-      upload: finalUpload,
-      ping: finalPing,
-      timestamp: Date.now(),
-      estimatedBroadband: broadband
-    };
+      const broadband = getEstimatedBroadband(finalDownload);
+      const result: TestResult = {
+        download: finalDownload,
+        upload: finalUpload,
+        ping: finalPing,
+        timestamp: Date.now(),
+        estimatedBroadband: broadband
+      };
 
-    setStage('finished');
-    setDownloadSpeed(finalDownload);
-    setUploadSpeed(finalUpload);
+      setStage('finished');
+      setDownloadSpeed(finalDownload);
+      setUploadSpeed(finalUpload);
 
-    const now = new Date();
-    const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    setTestTime(timeStr);
+      const now = new Date();
+      const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      setTestTime(timeStr);
 
-    saveToHistory(result);
+      saveToHistory(result);
+    } catch (error: any) {
+      stopTest();
+      triggerToast(error.message || '测速失败，请检查网络连接');
+    }
   };
 
   const stopTest = () => {
