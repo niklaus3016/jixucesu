@@ -37,8 +37,15 @@ jobs:
       - name: Fix gradle wrapper
         run: |
           cd android
-          rm -f gradle/wrapper/gradle-wrapper.jar
-          curl -L -o gradle/wrapper/gradle-wrapper.jar https://github.com/gradle/gradle/raw/v8.7.0/gradle/wrapper/gradle-wrapper.jar
+          # 重新初始化gradle wrapper
+          curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradlew
+          chmod +x gradlew
+          # 生成正确的gradle-wrapper.properties
+          echo "distributionBase=GRADLE_USER_HOME" > gradle/wrapper/gradle-wrapper.properties
+          echo "distributionPath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
+          echo "zipStoreBase=GRADLE_USER_HOME" >> gradle/wrapper/gradle-wrapper.properties
+          echo "zipStorePath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
+          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip" >> gradle/wrapper/gradle-wrapper.properties
 
       - name: Build APK
         run: |
