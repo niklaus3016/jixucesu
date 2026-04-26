@@ -72,12 +72,33 @@ export default function App() {
     }, 2000);
   };
 
-  // Smooth speed value for gauge
-  const smoothSpeed = useSpring(0, {
-    damping: 15, // 减少阻尼，使动画更流畅
-    stiffness: 200, // 增加刚度，使动画反应更快
-    mass: 0.5 // 减少质量，使动画更灵敏
-  });
+  // Smooth speed value for gauge with better animation
+  const [displaySpeed, setDisplaySpeed] = useState(0);
+  
+  // Update display speed with smooth animation
+  useEffect(() => {
+    const targetSpeed = currentDisplaySpeed;
+    const duration = 300; // Animation duration in ms
+    const startTime = performance.now();
+    const startSpeed = displaySpeed;
+    
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Easing function for smoother animation
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      const currentSpeed = startSpeed + (targetSpeed - startSpeed) * easedProgress;
+      
+      setDisplaySpeed(currentSpeed);
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  }, [currentDisplaySpeed, displaySpeed]);
 
   // --- Refs ---
   const testIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -639,7 +660,7 @@ export default function App() {
   const gaugeBreaks = [0, 10, 50, 100, 250, 500, 1000];
   const gaugeProgress = [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1];
 
-  const progressPath = useTransform(smoothSpeed, gaugeBreaks, gaugeProgress);
+  const progressPath = useTransform(displaySpeed, gaugeBreaks, gaugeProgress);
 
   const cx = 160;
   const cy = 145;
@@ -705,7 +726,7 @@ export default function App() {
               const x2 = cx + Math.cos(rad) * (rx + 4);
               const y2 = cy + Math.sin(rad) * (ry + 4);
               
-              const isActive = val <= currentDisplaySpeed;
+              const isActive = val <= displaySpeed;
               const activeColor = stage === 'upload' ? "#10B981" : "#0066FF";
               
               return (
@@ -738,7 +759,7 @@ export default function App() {
               animate={{ opacity: 1, scale: 1 }}
               className={`text-[42px] font-black leading-none tracking-tight ${stage === 'upload' ? 'text-success' : 'text-primary'}`}
             >
-              {currentDisplaySpeed.toFixed(1)}
+              {displaySpeed.toFixed(1)}
             </motion.span>
             <div className="flex items-center gap-1 mt-1">
               {stage === 'download' ? <ArrowDown size={14} className="text-primary" /> : stage === 'upload' ? <ArrowUp size={14} className="text-success" /> : null}
