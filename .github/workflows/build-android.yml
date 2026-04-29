@@ -48,14 +48,6 @@ jobs:
           echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip" >> gradle/wrapper/gradle-wrapper.properties
           chmod +x gradlew
 
-      - name: Decode keystore from base64
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: |
-          echo "KEYSTORE_BASE64 length: ${#KEYSTORE_BASE64}"
-          echo "$KEYSTORE_BASE64" | base64 -d > android/release.keystore
-          ls -la android/release.keystore
-
       - name: Build Debug APK
         run: |
           cd android
@@ -64,8 +56,6 @@ jobs:
       - name: Build Release APK
         run: |
           cd android
-          echo "RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}"
-          echo "RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}"
           gradle assembleRelease -PreleaseStorePassword="${{ secrets.RELEASE_STORE_PASSWORD }}" -PreleaseKeyPassword="${{ secrets.RELEASE_KEY_PASSWORD }}" -PreleaseKeyAlias="${{ secrets.RELEASE_KEY_ALIAS }}"
       
       - name: Upload Debug APK
