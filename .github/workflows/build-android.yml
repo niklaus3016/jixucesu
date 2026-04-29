@@ -53,6 +53,47 @@ jobs:
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > my-release-key.keystore
         echo "=== Listing aliases in keystore ==="
         keytool -list -keystore my-release-key.keystore -storepass "${{ secrets.KEYSTORE_PASSWORD }}"
+        echo "=== Keystore file details ==="
+        ls -la my-release-key.keystore
+        file my-release-key.keystore
+
+    - name: Extract SHA1 from keystore
+      run: |
+        cd android
+        echo "Run # 将 base64 编码的 keystore 还原为文件"
+        echo "# 将 base64 编码的 keystore 还原为文件"
+        echo ""
+        full_output=$(keytool -list -v -keystore my-release-key.keystore -alias jixucesu -storepass "${{ secrets.KEYSTORE_PASSWORD }}")
+        
+        sha1_with_colons=$(echo "$full_output" | grep -i "sha1:" | head -1 | sed 's/.*sha1:\s*//i' | sed 's/\s*$//')
+        sha256_with_colons=$(echo "$full_output" | grep -i "sha256:" | head -1 | sed 's/.*sha256:\s*//i' | sed 's/\s*$//')
+        md5_with_colons=$(echo "$full_output" | grep -i "md5:" | head -1 | sed 's/.*md5:\s*//i' | sed 's/\s*$//')
+        
+        echo "===== 证书指纹 ====="
+        echo "     SHA1: $sha1_with_colons"
+        echo "     SHA256: $sha256_with_colons"
+        echo "===================="
+        echo ""
+        echo "===== MD5 指纹 ====="
+        echo "$md5_with_colons"
+        echo "===================="
+        echo ""
+        echo "===== SHA1 指纹（小米应用商店用）====="
+        echo "$sha1_with_colons"
+        echo "======================================="
+        echo ""
+        echo "===== 去掉冒号的 SHA1（直接复制）====="
+        sha1_without_colons=$(echo "$sha1_with_colons" | tr -d ":")
+        echo "$sha1_without_colons"
+        echo "======================================="
+        echo ""
+        echo "===== 公钥信息 ====="
+        echo "Certificate fingerprints:"
+        echo "     SHA1: $sha1_with_colons"
+        echo "     SHA256: $sha256_with_colons"
+        signature_algorithm=$(echo "$full_output" | grep -i "Signature algorithm name" | head -1 | sed 's/.*://' | sed 's/\s*$//')
+        echo "Signature algorithm name: $signature_algorithm"
+        echo "============================="
 
     - name: Build Android Release APK
       run: |
