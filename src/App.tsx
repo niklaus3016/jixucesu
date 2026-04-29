@@ -456,11 +456,13 @@ export default function App() {
     onProgress: (speed: number) => void,
     abortRef: React.MutableRefObject<boolean>
   ): Promise<number> => {
-    // 使用稳定的上传URL
+    // 使用更稳定的上传URL，优先国内服务器
     const uploadUrls = [
       'https://httpbin.org/post',
       'https://postman-echo.com/post',
       'https://jsonplaceholder.typicode.com/posts',
+      'https://api.ip.sb/echo',
+      'https://www.baidu.com/',
     ];
     
     const startTime = performance.now();
@@ -468,8 +470,8 @@ export default function App() {
     let totalUploaded = 0;
     let successfulUploads = 0;
     
-    // 测试时间控制在5秒
-    const testDuration = 5000; // 5秒
+    // 增加测试时间到8秒，获取更多采样数据
+    const testDuration = 8000; // 8秒
     const endTime = startTime + testDuration;
     
     let lastUpdate = startTime;
@@ -496,8 +498,8 @@ export default function App() {
     // 立即开始实时动画，不等待
     animateProgress();
     
-    // 多线程上传
-    const maxConcurrent = 4; // 增加并发数到4
+    // 多线程上传，增加并发数
+    const maxConcurrent = 6; // 增加并发数到6
     let activeUploads = 0;
     let uploadIndex = 0;
     
@@ -513,10 +515,10 @@ export default function App() {
         const uploadPromise = (async () => {
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 减少超时时间
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // 增加超时时间
             
-            // 生成更小的随机数据（250KB），加快上传速度
-            const chunkSize = 250 * 1024; // 250KB
+            // 增加上传数据量到500KB，提高测试准确性
+            const chunkSize = 500 * 1024; // 500KB
             const data = new Uint8Array(chunkSize);
             for (let i = 0; i < chunkSize; i++) data[i] = Math.floor(Math.random() * 256);
             
@@ -534,18 +536,21 @@ export default function App() {
                   const now = performance.now();
                   if (now >= endTime) return;
                   
-                  threadUploaded += e.loaded;
-                  totalUploaded += e.loaded;
+                  // 计算增量上传量，避免重复累加
+                  const delta = e.loaded - threadUploaded;
+                  threadUploaded = e.loaded;
+                  totalUploaded += delta;
                   hasProgressUpdate = true;
                   
                   const nowTime = performance.now();
-                  if (nowTime - lastUpdate >= 100) { // 100ms采样频率
+                  if (nowTime - lastUpdate >= 50) { // 提高采样频率到50ms
                     const elapsed = (nowTime - startTime) / 1000;
-                    // 立即开始更新，不需要等待0.1秒
-                    const speed = (totalUploaded * 8) / (elapsed * 1000000);
-                    speedSamples.push(speed);
-                    onProgress(speed);
-                    lastUpdate = nowTime;
+                    if (elapsed > 0) {
+                      const speed = (totalUploaded * 8) / (elapsed * 1000000);
+                      speedSamples.push(speed);
+                      onProgress(speed);
+                      lastUpdate = nowTime;
+                    }
                   }
                 }
               };
@@ -561,11 +566,11 @@ export default function App() {
                 clearTimeout(timeoutId);
                 reject(new Error('Upload timeout'));
               };
-              xhr.timeout = 5000; // 减少超时时间
+              xhr.timeout = 8000; // 增加超时时间
               xhr.send(formData);
             });
             
-            if (xhr.status >= 400) throw new Error('Upload failed with status ' + xhr.status);
+            if (xhr.status >= 400 && xhr.status !== 200) throw new Error('Upload failed with status ' + xhr.status);
             successfulUploads++;
           } catch (error) {
             console.warn('Upload chunk failed, continuing');
@@ -577,7 +582,7 @@ export default function App() {
         uploadQueue.push(uploadPromise);
         
         // 减少延迟，加快上传请求的发起
-        await new Promise(r => setTimeout(r, 50));
+        await new Promise(r => setTimeout(r, 30));
       } else {
         // 等待一个上传完成
         await Promise.race(uploadQueue);
@@ -587,21 +592,30 @@ export default function App() {
     // 等待所有上传完成
     await Promise.allSettled(uploadQueue);
     
-    // 计算稳定速度
+    // 计算稳定速度 - 使用更稳健的算法
     if (speedSamples.length > 0) {
-      // 排序并剔除首尾10%的波动值
+      // 排序并剔除首尾20%的波动值（更激进的过滤）
       speedSamples.sort((a, b) => a - b);
-      const startIndex = Math.floor(speedSamples.length * 0.1);
-      const endIndex = Math.ceil(speedSamples.length * 0.9);
+      const startIndex = Math.floor(speedSamples.length * 0.2);
+      const endIndex = Math.ceil(speedSamples.length * 0.8);
       const stableSamples = speedSamples.slice(startIndex, endIndex);
       
       if (stableSamples.length > 0) {
-        // 计算平均值
-        const averageSpeed = stableSamples.reduce((sum, speed) => sum + speed, 0) / stableSamples.length;
-        const finalSpeed = Math.max(0.1, Math.min(averageSpeed, 1000));
+        // 使用中位数而非平均值，更抗极端值
+        const sorted = [...stableSamples].sort((a, b) => a - b);
+        const medianSpeed = sorted.length % 2 === 0 
+          ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+          : sorted[Math.floor(sorted.length / 2)];
+        
+        // 计算加权平均值，近期数据权重更高
+        const recentSamples = stableSamples.slice(-Math.floor(stableSamples.length * 0.5));
+        const recentAvg = recentSamples.reduce((sum, speed) => sum + speed, 0) / recentSamples.length;
+        
+        // 综合中位数和近期平均值
+        const finalSpeed = Math.max(0.1, Math.min((medianSpeed * 0.6 + recentAvg * 0.4), 500));
+        
         // 最后一次更新，确保显示最终速度
-        // 只在速度变化较大时更新，避免重复动画
-        if (Math.abs(finalSpeed - (speedSamples[speedSamples.length - 1] || 0)) > 5) {
+        if (Math.abs(finalSpeed - (speedSamples[speedSamples.length - 1] || 0)) > 3) {
           onProgress(finalSpeed);
         }
         return finalSpeed;
@@ -653,18 +667,59 @@ export default function App() {
     setUploadSpeed(0);
     setPing(0);
 
+    // 后台异步获取ISP信息，不阻塞测速流程
+    const ispPromise = fetchIspInfo();
+    let currentIspKey: 'telecom' | 'mobile' | 'unicom' | null = null;
+    ispPromise.then(result => {
+      if (result) {
+        currentIspKey = result.key;
+      }
+    }).catch(() => {
+      console.log('Failed to fetch ISP info, using default');
+    });
+
     try {
-      // 并行执行fetchIspInfo和measurePing，减少等待时间
-      const [ispResult, pingResult] = await Promise.all([
-        fetchIspInfo(),
-        measurePing()
-      ]);
+      // ping阶段添加动画反馈
+      let pingAnimationTimer: NodeJS.Timeout | null = null;
+      const startPingAnimation = () => {
+        let count = 0;
+        const animate = () => {
+          if (abortRef.current) return;
+          count++;
+          // 模拟ping值逐渐稳定的动画
+          const simulatedPing = Math.max(10, 100 - count * 2 + Math.random() * 20);
+          setPing(Math.round(simulatedPing));
+          if (count < 20) {
+            pingAnimationTimer = setTimeout(animate, 100);
+          }
+        };
+        animate();
+      };
+
+      startPingAnimation();
+
+      // 执行ping测试
+      const pingResult = await measurePing();
       
-      const currentIspKey = ispResult?.key || null;
+      if (pingAnimationTimer) {
+        clearTimeout(pingAnimationTimer);
+      }
+      
       const { ping: finalPing, jitter: finalJitter } = pingResult;
       
       setPing(finalPing);
       setJitterValue(finalJitter);
+
+      // 等待ISP信息获取完成（最多等待1秒）
+      try {
+        const ispResult = await Promise.race([
+          ispPromise,
+          new Promise<null>(resolve => setTimeout(() => resolve(null), 1000))
+        ]);
+        if (ispResult) {
+          currentIspKey = ispResult.key;
+        }
+      } catch {}
 
       setStage('download');
       const finalDownload = await measureDownload((speed) => {
