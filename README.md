@@ -1,20 +1,58 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 极序测速 App
 
-# Run and deploy your AI Studio app
+一个基于 React + Capacitor 的测速应用。
 
-This contains everything you need to run your app locally.
+## 运行项目
 
-View your app in AI Studio: https://ai.studio/apps/3641f057-25c6-4c97-b089-6ba7c9b53e8a
+### 前置条件
+- Node.js
+- Android Studio（用于 Android 构建）
 
-## Run Locally
+### 本地开发
 
-**Prerequisites:**  Node.js
+1. 安装依赖：
+   ```bash
+   npm install
+   ```
 
+2. 运行开发服务器：
+   ```bash
+   npm run dev
+   ```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+3. 构建生产版本：
+   ```bash
+   npm run build
+   ```
+
+### Android 构建
+
+1. 确保已构建前端项目：
+   ```bash
+   npm run build
+   ```
+
+2. 更新 Capacitor 配置：
+   ```bash
+   npx cap sync android
+   ```
+
+3. 打开 Android Studio 构建 APK：
+   ```bash
+   npx cap open android
+   ```
+
+## CI/CD
+
+项目已配置 GitHub Actions 自动构建。推送代码到 `main` 分支会自动触发 APK 构建流程。
+
+## 项目结构
+
+```
+├── android/          # Android 原生代码
+├── dist/             # 构建产物
+├── src/              # 前端源代码
+├── capacitor.config.ts   # Capacitor 配置
+├── package.json      # 项目依赖
+└── vite.config.ts    # Vite 配置
+```
