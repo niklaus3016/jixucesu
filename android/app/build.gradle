@@ -1,5 +1,9 @@
 apply plugin: 'com.android.application'
 
+def releaseStorePassword = project.hasProperty('releaseStorePassword') ? project.property('releaseStorePassword') : ''
+def releaseKeyPassword = project.hasProperty('releaseKeyPassword') ? project.property('releaseKeyPassword') : ''
+def releaseKeyAlias = project.hasProperty('releaseKeyAlias') ? project.property('releaseKeyAlias') : ''
+
 android {
     namespace = "com.jixu.speedtest"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -32,10 +36,6 @@ android {
         }
     }
 }
-
-def releaseStorePassword = project.hasProperty('releaseStorePassword') ? project.property('releaseStorePassword') : ''
-def releaseKeyPassword = project.hasProperty('releaseKeyPassword') ? project.property('releaseKeyPassword') : ''
-def releaseKeyAlias = project.hasProperty('releaseKeyAlias') ? project.property('releaseKeyAlias') : ''
 
 repositories {
     flatDir{
