@@ -42,31 +42,99 @@ jobs:
     - name: Create keystore file from GitHub Secrets
       run: |
         cd android
+        # Check if KEYSTORE_BASE64 secret is set
         if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
           echo "Error: KEYSTORE_BASE64 secret is not set"
           exit 1
         fi
+        # Remove existing keystore file if it exists
         if [ -f "my-release-key.keystore" ]; then
+          echo "Removing existing keystore file"
           rm -f my-release-key.keystore
         fi
+        # Create keystore file from base64 encoded secret
         echo "Creating keystore file from GitHub Secrets"
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > my-release-key.keystore
+        # List aliases in keystore
         echo "=== Listing aliases in keystore ==="
         keytool -list -keystore my-release-key.keystore -storepass "${{ secrets.KEYSTORE_PASSWORD }}"
+        # Check keystore file details
         echo "=== Keystore file details ==="
         ls -la my-release-key.keystore
         file my-release-key.keystore
 
+    - name: Extract SHA1 from keystore
+      run: |
+        cd android
+        echo "Run # 将 base64 编码的 keystore 还原为文件"
+        echo "# 将 base64 编码的 keystore 还原为文件"
+        echo ""
+        # Get full keytool output for debugging
+        full_output=$(keytool -list -v -keystore my-release-key.keystore -alias jixucesu -storepass "${{ secrets.KEYSTORE_PASSWORD }}")
+        
+        # Extract fingerprints
+        sha1_with_colons=$(echo "$full_output" | grep -i "sha1:" | head -1 | sed 's/.*sha1:\s*//i' | sed 's/\s*$//')
+        sha256_with_colons=$(echo "$full_output" | grep -i "sha256:" | head -1 | sed 's/.*sha256:\s*//i' | sed 's/\s*$//')
+        md5_with_colons=$(echo "$full_output" | grep -i "md5:" | head -1 | sed 's/.*md5:\s*//i' | sed 's/\s*$//')
+        
+        echo "===== 证书指纹 ====="
+        echo "     SHA1: $sha1_with_colons"
+        echo "     SHA256: $sha256_with_colons"
+        echo "===================="
+        echo ""
+        echo "===== MD5 指纹 ====="
+        echo "$md5_with_colons"
+        echo "===================="
+        echo ""
+        echo "===== SHA1 指纹（小米应用商店用）====="
+        echo "$sha1_with_colons"
+        echo "======================================="
+        echo ""
+        echo "===== 去掉冒号的 SHA1（直接复制）====="
+        # Remove colons from SHA1
+        sha1_without_colons=$(echo "$sha1_with_colons" | tr -d ":")
+        echo "$sha1_without_colons"
+        echo "======================================="
+        echo ""
+        echo "===== 公钥信息 ====="
+        echo "Certificate fingerprints:"
+        echo "     SHA1: $sha1_with_colons"
+        echo "     SHA256: $sha256_with_colons"
+        # Show signature algorithm
+        signature_algorithm=$(echo "$full_output" | grep -i "Signature algorithm name" | head -1 | sed 's/.*://' | sed 's/\s*$//')
+        echo "Signature algorithm name: $signature_algorithm"
+        echo "============================="
+
     - name: Build Android Release APK
-      env:
-        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
       run: |
         cd android
         echo "=== Building Release APK ==="
+        # 清理之前的构建产物
         ./gradlew clean
-        ./gradlew assembleRelease --no-build-cache --no-daemon
+        # 构建release APK
+        echo "Building release APK"
+        ./gradlew assembleRelease --no-build-cache --no-daemon -Pandroid.injected.signing.store.file=my-release-key.keystore -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" -Pandroid.injected.signing.key.alias=jixucesu -Pandroid.injected.signing.key.password="${{ secrets.KEYSTORE_PASSWORD }}"
         echo "=== Build completed, checking output ==="
         ls -la app/build/outputs/apk/release/
+        file app/build/outputs/apk/release/app-release.apk 2>/dev/null || echo "APK file not found"
+        stat -c '%s' app/build/outputs/apk/release/app-release.apk 2>/dev/null || echo "Cannot get APK file size"
+        # 验证APK文件的完整性
+        echo "=== Verifying APK file ==="
+        unzip -t app/build/outputs/apk/release/app-release.apk 2>/dev/null || echo "APK file verification failed"
+        # 检查APK签名
+        echo "=== Checking APK signature ==="
+        if command -v apksigner &> /dev/null; then
+          apksigner verify --verbose app/build/outputs/apk/release/app-release.apk 2>/dev/null || echo "Cannot verify APK signature"
+        else
+          echo "apksigner not found, skipping signature verification"
+        fi
+        # 查看APK基本信息
+        echo "=== Checking APK basic info ==="
+        if command -v aapt &> /dev/null; then
+          aapt dump badging app/build/outputs/apk/release/app-release.apk | grep -E "package|sdkVersion" 2>/dev/null || echo "Cannot get APK info"
+        else
+          echo "aapt not found, skipping APK info check"
+        fi
 
     - name: Build Android Debug APK
       run: |

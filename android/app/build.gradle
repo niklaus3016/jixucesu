@@ -1,5 +1,28 @@
 apply plugin: 'com.android.application'
 
+// 删除自适应图标配置文件
+task deleteAdaptiveIconConfigs {
+    doLast {
+        def filesToDelete = [
+            'src/main/res/drawable/ic_launcher_background.xml',
+            'src/main/res/drawable-v24/ic_launcher_foreground.xml',
+            'src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
+            'src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml'
+        ]
+        
+        filesToDelete.each { filePath ->
+            def fileObj = file(filePath)
+            if (fileObj.exists()) {
+                fileObj.delete()
+                println "Deleted: $filePath"
+            }
+        }
+    }
+}
+
+// 在构建前执行删除任务
+preBuild.dependsOn deleteAdaptiveIconConfigs
+
 android { 
     namespace = "com.jixucesu.app" 
     compileSdk = rootProject.ext.compileSdkVersion 
@@ -11,6 +34,8 @@ android {
         versionName "V1.0" 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner" 
         aaptOptions { 
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps. 
+             // Default: `https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61` 
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~' 
         } 
     }
@@ -20,11 +45,13 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
     
+    // 确保使用AndroidX
     lintOptions {
         checkReleaseBuilds false
         abortOnError false
     } 
     
+    // 添加签名配置
     signingConfigs {
         release {
             storeFile file('../my-release-key.keystore')
@@ -33,7 +60,7 @@ android {
             keyPassword System.getenv('KEYSTORE_PASSWORD') ?: '123456'
             v1SigningEnabled true
             v2SigningEnabled true
-            storeType 'PKCS12'
+            storeType 'JKS'
         }
     }
     
