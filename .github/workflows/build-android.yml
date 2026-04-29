@@ -37,37 +37,36 @@ jobs:
       - name: Fix gradle wrapper completely
         run: |
           cd android
-          # 删除现有的gradle wrapper目录
           rm -rf gradle/wrapper
-          # 重新创建目录
           mkdir -p gradle/wrapper
-          # 下载正确的gradle-wrapper.jar
           curl -L -o gradle/wrapper/gradle-wrapper.jar https://services.gradle.org/distributions/gradle-8.7-wrapper.jar
-          # 下载正确的gradlew脚本
           curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradlew
-          # 生成正确的gradle-wrapper.properties
           echo "distributionBase=GRADLE_USER_HOME" > gradle/wrapper/gradle-wrapper.properties
           echo "distributionPath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
           echo "zipStoreBase=GRADLE_USER_HOME" >> gradle/wrapper/gradle-wrapper.properties
           echo "zipStorePath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
           echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip" >> gradle/wrapper/gradle-wrapper.properties
-          # 赋予执行权限
           chmod +x gradlew
 
-      - name: Generate signing key
+      - name: Decode keystore from base64
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          cd android/app
-          keytool -genkey -v -keystore release.keystore -alias jxcs -keyalg RSA -keysize 2048 -validity 10000 -storepass jxcs123456 -keypass jxcs123456 -dname "CN=极序测速, OU=极序技术团队, O=光年跃迁科技, L=温州, ST=浙江, C=CN"
-      
+          echo "$KEYSTORE_BASE64" | base64 -d > android/release.keystore
+
       - name: Build Debug APK
         run: |
           cd android
           gradle assembleDebug
       
       - name: Build Release APK
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
         run: |
           cd android
-          gradle assembleRelease
+          gradle assembleRelease -PreleaseStorePassword="$RELEASE_STORE_PASSWORD" -PreleaseKeyPassword="$RELEASE_KEY_PASSWORD" -PreleaseKeyAlias="$RELEASE_KEY_ALIAS"
       
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
