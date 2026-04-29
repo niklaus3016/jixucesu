@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.jixu.speedtest',
+  appId: 'com.jixucesu.app',
   appName: '极序测速',
   webDir: 'dist'
 };

@@ -1,4 +1,4 @@
-package com.jixu.speedtest;
+package com.jixucesu.app;
 
 import com.getcapacitor.BridgeActivity;
 
