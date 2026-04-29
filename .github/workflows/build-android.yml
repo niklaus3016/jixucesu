@@ -54,14 +54,29 @@ jobs:
           # 赋予执行权限
           chmod +x gradlew
 
-      - name: Build APK with system Gradle
+      - name: Generate signing key
+        run: |
+          cd android/app
+          keytool -genkey -v -keystore release.keystore -alias jxcs -keyalg RSA -keysize 2048 -validity 10000 -storepass jxcs123456 -keypass jxcs123456 -dname "CN=极序测速, OU=极序技术团队, O=光年跃迁科技, L=温州, ST=浙江, C=CN"
+      
+      - name: Build Debug APK
         run: |
           cd android
-          # 直接使用系统安装的gradle
           gradle assembleDebug
       
-      - name: Upload APK
+      - name: Build Release APK
+        run: |
+          cd android
+          gradle assembleRelease
+      
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
+      
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: android/app/build/outputs/apk/release/app-release.apk
