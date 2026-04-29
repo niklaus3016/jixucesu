@@ -36,19 +36,8 @@ jobs:
     - name: Set up Android SDK
       uses: android-actions/setup-android@v3
     
-    - name: Completely rebuild gradle wrapper
-      run: |
-        cd android
-        rm -rf gradle
-        mkdir -p gradle/wrapper
-        curl -L -o gradle/wrapper/gradle-wrapper.jar https://services.gradle.org/distributions/gradle-8.7-wrapper.jar
-        echo "distributionBase=GRADLE_USER_HOME" > gradle/wrapper/gradle-wrapper.properties
-        echo "distributionPath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
-        echo "zipStoreBase=GRADLE_USER_HOME" >> gradle/wrapper/gradle-wrapper.properties
-        echo "zipStorePath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
-        echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip" >> gradle/wrapper/gradle-wrapper.properties
-        curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradlew
-        chmod +x gradlew
+    - name: Make gradlew executable
+      run: chmod +x ./android/gradlew
 
     - name: Create keystore file from GitHub Secrets
       run: |
