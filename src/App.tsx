@@ -305,14 +305,15 @@ export default function App() {
       testFiles = officialTestFiles[currentIspKey];
       console.log('使用运营商官方测速源:', currentIspKey);
     } else {
+      // 使用大文件CDN测速源，确保测速准确性
       testFiles = [
-        'https://cdn.bootcdn.net/ajax/libs/jquery/3.7.1/jquery.min.js',
-        'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js',
-        'https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js',
-        'https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js',
-        'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js',
+        'https://download-copilot.bytedance.net/api/text/download?text=https://github.com/miclle/ChinaSpeed/blob/master/file/50MB.bin?raw=true',
+        'https://speed.cloudflare.com/__down?bytes=52428800',
+        'https://mirrors.tuna.tsinghua.edu.cn/ubuntu-releases/jammy/ubuntu-22.04.3-desktop-amd64.iso',
+        'https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.5.tar.xz',
+        'https://dl.google.com/android/repository/platform-tools-latest-linux.zip',
       ];
-      console.log('使用通用CDN测速源');
+      console.log('使用通用CDN测速源（大文件）');
     }
     
     const startTime = performance.now();
