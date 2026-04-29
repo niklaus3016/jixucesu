@@ -213,6 +213,9 @@ export default function App() {
     detectNetwork();
     window.addEventListener('online', detectNetwork);
     
+    // 在应用启动时获取 ISP 信息
+    fetchIspInfo();
+    
     // Check if privacy policy has been accepted
     const privacyAccepted = localStorage.getItem('privacyAccepted');
     if (!privacyAccepted) {
